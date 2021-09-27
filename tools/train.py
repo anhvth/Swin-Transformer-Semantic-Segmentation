@@ -59,8 +59,8 @@ def parse_args():
 
     return args
 
+
 def replace_sync_bn(model_cfg):
-    
     if model_cfg.get('type', None) == 'SyncBN':
         model_cfg['type'] = 'BN'
         return model_cfg
