@@ -18,8 +18,12 @@ if platform.system() != 'Windows':
     soft_limit = min(4096, hard_limit)
     resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
-DATASETS = Registry('dataset')
-PIPELINES = Registry('pipeline')
+class ForceRegistry(Registry):
+    def register_module(self, *args, force=True, **kwargs):
+        return super().register_module(*args, **kwargs, force=True)
+
+DATASETS = ForceRegistry('dataset')
+PIPELINES = ForceRegistry('pipeline')
 
 
 def _concat_dataset(cfg, default_args=None):

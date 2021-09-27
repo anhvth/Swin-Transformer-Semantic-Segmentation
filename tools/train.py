@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument(
         '--resume-from', help='the checkpoint file to resume from')
     parser.add_argument(
-        '--no-validate',
+        '--validate',
         action='store_true',
         help='whether not to evaluate the checkpoint during training')
     group_gpus = parser.add_mutually_exclusive_group()
@@ -58,6 +58,18 @@ def parse_args():
         os.environ['LOCAL_RANK'] = str(args.local_rank)
 
     return args
+
+def replace_sync_bn(model_cfg):
+    
+    if model_cfg.get('type', None) == 'SyncBN':
+        model_cfg['type'] = 'BN'
+        return model_cfg
+    else:
+        for k, v in model_cfg.items():
+            if isinstance(v, dict):
+                v = replace_sync_bn(v)
+            model_cfg[k] = v
+        return model_cfg
 
 
 def main():
@@ -126,7 +138,8 @@ def main():
     cfg.seed = args.seed
     meta['seed'] = args.seed
     meta['exp_name'] = osp.basename(args.config)
-
+    if not distributed:
+        cfg.model = replace_sync_bn(cfg.model)
     model = build_segmentor(
         cfg.model,
         train_cfg=cfg.get('train_cfg'),
@@ -154,7 +167,7 @@ def main():
         datasets,
         cfg,
         distributed=distributed,
-        validate=(not args.no_validate),
+        validate=args.validate,
         timestamp=timestamp,
         meta=meta)
 

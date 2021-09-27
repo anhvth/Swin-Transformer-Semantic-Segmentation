@@ -151,3 +151,40 @@ class LoadAnnotations(object):
         repr_str += f'(reduce_zero_label={self.reduce_zero_label},'
         repr_str += f"imdecode_backend='{self.imdecode_backend}')"
         return repr_str
+
+
+@PIPELINES.register_module(force=True)
+class LoadDepthAnnotations(LoadAnnotations):
+    def __call__(self, results):
+        """Call function to load multiple types annotations.
+
+            # constuct depth map from npy format
+        """
+        if self.file_client is None:
+            self.file_client = mmcv.FileClient(**self.file_client_args)
+        
+        if results.get('depth_prefix', None) is not None:
+            filename = osp.join(results['depth_prefix'],
+                                results['ann_info']['depth_map'])
+        else:
+            filename = results['ann_info']['depth_map']
+
+        height, width = results['ori_shape'][:2]
+
+        data = np.load(filename)
+        in_side_img = (data[:,:2]<np.array([[width, height]])).sum(1)==2
+
+        depth = np.zeros([height, width], np.float32)
+        mask = np.zeros([height, width], bool)
+        
+        x = data[:,0].astype(int)[in_side_img]
+        y = data[:,1].astype(int)[in_side_img]
+        v = data[:,2][in_side_img]
+
+        depth[y, x] = v
+        mask[y,x] = True
+        
+        results['gt_depth'] = depth
+        results['depth_mask'] = (y,x)
+#         results['seg_fields'].append('gt_semantic_seg')
+        return results
